@@ -185,7 +185,7 @@
   </div>
 
   <div class="footer">
-    <div class="footer-info">Klik op "Opslaan voor Jan-Dirk" zodat hij de laatste versie ziet via dezelfde link.</div>
+    <div class="footer-info">Klik op "Opslaan voor Jan-Dirk" — hij ziet de laatste versie altijd via dezelfde korte link.</div>
     <div style="font-size:11px;color:#aaa">Labo Scientific B.V. — Jennerstraat, Ede</div>
   </div>
 </div>
@@ -195,51 +195,54 @@ var tasks = { todo: [], doing: [], done: [] };
 var naam = '';
 var weekDate = '';
 var idCounter = 1;
-var STORAGE_KEY = 'labo_weekupdate_v1';
 
-// --- Claude API persistent storage ---
-async function apiSave(data) {
+// ─── Persistent storage via window.storage (Claude artifact API) ───────────
+// Slaat op onder een vaste sleutel, gedeeld (shared=true) zodat
+// Jan-Dirk de laatste versie ziet zodra hij dezelfde URL opent.
+// Geen data in de URL — de link blijft altijd kort.
+
+var STORAGE_KEY = 'labo_weekupdate_v2';
+
+async function storageSave(data) {
   try {
-    var resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 100,
-        system: 'You are a data store. When asked to save data, respond only with: SAVED',
-        messages: [{ role: 'user', content: 'SAVE:' + JSON.stringify(data) }]
-      })
-    });
-    return resp.ok;
-  } catch(e) { return false; }
+    await window.storage.set(STORAGE_KEY, JSON.stringify(data), true);
+    return true;
+  } catch(e) {
+    // Fallback: localStorage
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(_) {}
+    return false;
+  }
 }
 
-// We use localStorage as the persistent store, shared via a fixed key.
-// For real cross-device sharing we encode state in the URL hash.
-
-function encodeState() {
-  var state = { tasks: tasks, naam: naam, weekDate: weekDate, idCounter: idCounter };
-  return btoa(unescape(encodeURIComponent(JSON.stringify(state))));
-}
-
-function decodeState(str) {
+async function storageLoad() {
   try {
-    return JSON.parse(decodeURIComponent(escape(atob(str))));
-  } catch(e) { return null; }
+    var result = await window.storage.get(STORAGE_KEY, true);
+    if (result && result.value) return JSON.parse(result.value);
+  } catch(_) {}
+  // Fallback: localStorage
+  try {
+    var raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(_) {}
+  return null;
 }
 
-function saveData() {
-  var encoded = encodeState();
-  // Save to localStorage
-  localStorage.setItem(STORAGE_KEY, encoded);
-  // Update URL hash so Jan-Dirk can load via same link with hash
-  history.replaceState(null, '', '#' + encoded);
-  setStatus('saved', '✓ Opgeslagen! Deel de link met Jan-Dirk.');
-  // Show share link
-  setTimeout(function() {
-    var link = window.location.href.split('#')[0] + '#' + encoded;
-    prompt('Kopieer deze link en stuur naar Jan-Dirk (of zet in Teams):', link);
-  }, 300);
+// ─── Save ──────────────────────────────────────────────────────────────────
+async function saveData() {
+  setStatus('saving', '⏳ Opslaan...');
+  var data = { tasks: tasks, naam: naam, weekDate: weekDate, idCounter: idCounter };
+  var ok = await storageSave(data);
+
+  // Verwijder de hash uit de URL zodat die kort blijft
+  if (window.location.hash) {
+    history.replaceState(null, '', window.location.pathname);
+  }
+
+  if (ok) {
+    setStatus('saved', '✓ Opgeslagen! Jan-Dirk ziet dit zodra hij de link opent.');
+  } else {
+    setStatus('saved', '✓ Lokaal opgeslagen (storage niet beschikbaar).');
+  }
 }
 
 function setStatus(type, msg) {
@@ -248,37 +251,33 @@ function setStatus(type, msg) {
   el.textContent = msg;
 }
 
-function loadData() {
+// ─── Load ──────────────────────────────────────────────────────────────────
+async function loadData() {
   showLoading('Weekupdate laden...');
-  var loaded = false;
 
-  // 1. Try URL hash first (Jan-Dirk opens this)
-  if (window.location.hash && window.location.hash.length > 1) {
-    var d = decodeState(window.location.hash.slice(1));
-    if (d) {
-      tasks = d.tasks || { todo: [], doing: [], done: [] };
-      naam = d.naam || '';
-      weekDate = d.weekDate || '';
-      idCounter = d.idCounter || 1;
-      loaded = true;
-      setStatus('saved', '✓ Geladen vanuit gedeelde link');
-    }
+  // Probeer eerst de nieuwe server-side storage
+  var d = await storageLoad();
+
+  // Backwards-compat: als er nog een hash in de URL staat, gebruik die
+  if (!d && window.location.hash && window.location.hash.length > 1) {
+    try {
+      var decoded = JSON.parse(decodeURIComponent(escape(atob(window.location.hash.slice(1)))));
+      if (decoded) {
+        d = decoded;
+        // Migreer meteen naar de nieuwe opslag en verwijder hash
+        await storageSave(d);
+        history.replaceState(null, '', window.location.pathname);
+        setStatus('saved', '✓ Gemigreerd — de link is nu kort!');
+      }
+    } catch(_) {}
   }
 
-  // 2. Fallback: localStorage
-  if (!loaded) {
-    var raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      var d = decodeState(raw);
-      if (d) {
-        tasks = d.tasks || { todo: [], doing: [], done: [] };
-        naam = d.naam || '';
-        weekDate = d.weekDate || '';
-        idCounter = d.idCounter || 1;
-        loaded = true;
-        setStatus('', 'Lokaal geladen — klik Opslaan om te delen');
-      }
-    }
+  if (d) {
+    tasks    = d.tasks     || { todo: [], doing: [], done: [] };
+    naam     = d.naam      || '';
+    weekDate = d.weekDate  || '';
+    idCounter = d.idCounter || 1;
+    if (!window.location.hash) setStatus('saved', '✓ Geladen');
   }
 
   hideLoading();
@@ -294,6 +293,7 @@ function hideLoading() {
   document.getElementById('loading').classList.remove('open');
 }
 
+// ─── Datum helpers ─────────────────────────────────────────────────────────
 function getWeekNumber(d) {
   var date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
@@ -329,6 +329,7 @@ function updateMeta() {
   setStatus('', 'Niet opgeslagen');
 }
 
+// ─── Taken ────────────────────────────────────────────────────────────────
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
