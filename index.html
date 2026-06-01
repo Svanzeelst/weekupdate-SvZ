@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekupdate — Labo Scientific</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #f4f4f2; min-height: 100vh; padding: 24px 16px; }
+  .page { max-width: 960px; margin: 0 auto; }
+
+  .header {
+    background: #F53D1C; color: white;
+    padding: 18px 24px; border-radius: 10px 10px 0 0;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  }
+  .header h1 { font-size: 18px; font-weight: 700; }
+  .header-sub { font-size: 12px; opacity: 0.85; margin-top: 3px; }
+  .logo-mark { font-size: 11px; font-weight: 700; letter-spacing: 2px; opacity: 0.75; }
+  .week-badge { background: rgba(255,255,255,0.22); border-radius: 6px; padding: 5px 12px; font-size: 14px; font-weight: 600; }
+
+  .toolbar {
+    background: #fff; border-left: 1px solid #ddd; border-right: 1px solid #ddd;
+    padding: 12px 20px; display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+  }
+  .toolbar label { font-size: 12px; color: #666; display: block; margin-bottom: 3px; }
+  .toolbar input[type="date"], .toolbar input[type="text"] {
+    padding: 5px 8px; font-size: 13px; border: 1px solid #ccc; border-radius: 5px; font-family: Arial, sans-serif;
+  }
+  .toolbar input[type="text"] { width: 160px; }
+  .toolbar input:focus { outline: none; border-color: #F53D1C; }
+
+  .btn { padding: 6px 14px; font-size: 13px; font-weight: 600; border-radius: 5px; cursor: pointer; font-family: Arial, sans-serif; border: none; }
+  .btn-primary { background: #F53D1C; color: white; }
+  .btn-primary:hover { background: #d4320f; }
+  .btn-secondary { background: #fff; color: #333; border: 1px solid #ccc; }
+  .btn-secondary:hover { background: #f4f4f2; }
+  .btn-save { background: #2e7d32; color: white; }
+  .btn-save:hover { background: #1b5e20; }
+  .btn-clear { background: #fff; color: #999; border: 1px solid #ddd; font-size: 12px; padding: 5px 10px; }
+  .btn-clear:hover { background: #fdecea; color: #c0392b; border-color: #e0b0b0; }
+
+  .save-status { font-size: 12px; color: #888; align-self: center; margin-left: auto; }
+  .save-status.saved { color: #2e7d32; }
+  .save-status.saving { color: #F53D1C; }
+  .save-status.error { color: #c0392b; }
+
+  .columns {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    background: #fff; border-left: 1px solid #ddd; border-right: 1px solid #ddd;
+  }
+  .col { border-right: 1px solid #e5e5e5; display: flex; flex-direction: column; }
+  .col:last-child { border-right: none; }
+
+  .col-header {
+    padding: 12px 14px; display: flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid #e5e5e5;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .col-todo .col-header { background: #f5f5f3; color: #666; }
+  .col-todo .dot { background: #999; }
+  .col-doing .col-header { background: #fff8ec; color: #9a5500; }
+  .col-doing .dot { background: #F0A030; }
+  .col-done .col-header { background: #edf7e4; color: #3a6a12; }
+  .col-done .dot { background: #5a9e1e; }
+  .col-count { margin-left: auto; font-size: 11px; background: rgba(0,0,0,0.08); border-radius: 10px; padding: 1px 7px; font-weight: 600; }
+
+  .task-list { flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 200px; background: #fafaf9; }
+  .task-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px 12px; font-size: 13px; }
+  .task-title { font-weight: 600; color: #222; line-height: 1.4; }
+  .task-note { font-size: 12px; color: #888; margin-top: 4px; line-height: 1.45; }
+  .task-footer { margin-top: 8px; display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+  .btn-sm { font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; border: 1px solid #ddd; background: #fff; color: #555; font-family: Arial, sans-serif; }
+  .btn-sm:hover { background: #f0f0ee; }
+  .btn-del-sm { font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; border: 1px solid #ddd; background: #fff; color: #999; margin-left: auto; font-family: Arial, sans-serif; }
+  .btn-del-sm:hover { background: #fdecea; color: #c0392b; border-color: #e0b0b0; }
+
+  .add-area { padding: 10px; border-top: 1px solid #e5e5e5; background: #fff; }
+  .add-row { display: flex; gap: 6px; }
+  .add-row input[type="text"] { flex: 1; padding: 6px 9px; font-size: 12px; border: 1px solid #ccc; border-radius: 5px; font-family: Arial, sans-serif; background: #fafaf9; }
+  .add-row input[type="text"]:focus { outline: none; border-color: #F53D1C; }
+  .add-row button { background: #F53D1C; color: white; border: none; border-radius: 5px; padding: 6px 14px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: Arial, sans-serif; line-height: 1; }
+  .add-row button:hover { background: #d4320f; }
+  .add-note-row { margin-top: 6px; }
+  .add-note-row input[type="text"] { width: 100%; padding: 5px 9px; font-size: 11px; border: 1px solid #ddd; border-radius: 5px; font-family: Arial, sans-serif; background: #fafaf9; color: #666; }
+  .add-note-row input[type="text"]:focus { outline: none; border-color: #F53D1C; }
+
+  .footer {
+    background: #fff; border: 1px solid #ddd; border-top: none; border-radius: 0 0 10px 10px;
+    padding: 12px 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: space-between;
+  }
+  .footer-info { font-size: 11px; color: #aaa; }
+
+  .loading-overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.8); z-index: 200; align-items: center; justify-content: center; flex-direction: column; gap: 12px;
+  }
+  .loading-overlay.open { display: flex; }
+  .spinner { width: 36px; height: 36px; border: 3px solid #eee; border-top-color: #F53D1C; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 14px; color: #666; font-family: Arial, sans-serif; }
+
+  @media (max-width: 640px) {
+    .columns { grid-template-columns: 1fr; }
+    .col { border-right: none; border-bottom: 1px solid #e5e5e5; }
+  }
+
+  @media print {
+    body { background: white; padding: 0; }
+    .toolbar, .footer, .add-area, .task-footer, .loading-overlay { display: none !important; }
+    .header { border-radius: 0; }
+    .columns { border: 1px solid #ccc; }
+  }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Laden...</div>
+</div>
+
+<div class="page">
+  <div class="header">
+    <div>
+      <div class="logo-mark">LABO SCIENTIFIC B.V.</div>
+      <h1>Weekupdate</h1>
+      <div class="header-sub" id="date-range">—</div>
+    </div>
+    <div style="text-align:right">
+      <div class="week-badge" id="week-label">Week —</div>
+      <div style="font-size:11px;opacity:0.7;margin-top:4px" id="name-display"></div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div>
+      <label>Naam:</label>
+      <input type="text" id="naam-input" placeholder="Jouw naam" oninput="updateMeta()">
+    </div>
+    <div>
+      <label>Week van:</label>
+      <input type="date" id="week-date" onchange="updateMeta()">
+    </div>
+    <button class="btn btn-save" onclick="saveData()">💾 Opslaan voor Jan-Dirk</button>
+    <button class="btn btn-clear" onclick="clearAll()">Leegmaken</button>
+    <span class="save-status" id="save-status">Nog niet opgeslagen</span>
+  </div>
+
+  <div class="columns">
+    <div class="col col-todo">
+      <div class="col-header"><span class="dot"></span>Gepland deze week<span class="col-count" id="count-todo">0</span></div>
+      <div class="task-list" id="list-todo"></div>
+      <div class="add-area">
+        <div class="add-row">
+          <input type="text" id="input-todo" placeholder="Nieuwe taak…">
+          <button onclick="addTask('todo')">+</button>
+        </div>
+        <div class="add-note-row"><input type="text" id="note-todo" placeholder="Toelichting (optioneel)"></div>
+      </div>
+    </div>
+    <div class="col col-doing">
+      <div class="col-header"><span class="dot"></span>Mee bezig<span class="col-count" id="count-doing">0</span></div>
+      <div class="task-list" id="list-doing"></div>
+      <div class="add-area">
+        <div class="add-row">
+          <input type="text" id="input-doing" placeholder="Nieuwe taak…">
+          <button onclick="addTask('doing')">+</button>
+        </div>
+        <div class="add-note-row"><input type="text" id="note-doing" placeholder="Toelichting (optioneel)"></div>
+      </div>
+    </div>
+    <div class="col col-done">
+      <div class="col-header"><span class="dot"></span>Afgerond<span class="col-count" id="count-done">0</span></div>
+      <div class="task-list" id="list-done"></div>
+      <div class="add-area">
+        <div class="add-row">
+          <input type="text" id="input-done" placeholder="Nieuwe taak…">
+          <button onclick="addTask('done')">+</button>
+        </div>
+        <div class="add-note-row"><input type="text" id="note-done" placeholder="Toelichting (optioneel)"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-info">Klik op "Opslaan voor Jan-Dirk" zodat hij de laatste versie ziet via dezelfde link.</div>
+    <div style="font-size:11px;color:#aaa">Labo Scientific B.V. — Jennerstraat, Ede</div>
+  </div>
+</div>
+
+<script>
+var tasks = { todo: [], doing: [], done: [] };
+var naam = '';
+var weekDate = '';
+var idCounter = 1;
+var STORAGE_KEY = 'labo_weekupdate_v1';
+
+// --- Claude API persistent storage ---
+async function apiSave(data) {
+  try {
+    var resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 100,
+        system: 'You are a data store. When asked to save data, respond only with: SAVED',
+        messages: [{ role: 'user', content: 'SAVE:' + JSON.stringify(data) }]
+      })
+    });
+    return resp.ok;
+  } catch(e) { return false; }
+}
+
+// We use localStorage as the persistent store, shared via a fixed key.
+// For real cross-device sharing we encode state in the URL hash.
+
+function encodeState() {
+  var state = { tasks: tasks, naam: naam, weekDate: weekDate, idCounter: idCounter };
+  return btoa(unescape(encodeURIComponent(JSON.stringify(state))));
+}
+
+function decodeState(str) {
+  try {
+    return JSON.parse(decodeURIComponent(escape(atob(str))));
+  } catch(e) { return null; }
+}
+
+function saveData() {
+  var encoded = encodeState();
+  // Save to localStorage
+  localStorage.setItem(STORAGE_KEY, encoded);
+  // Update URL hash so Jan-Dirk can load via same link with hash
+  history.replaceState(null, '', '#' + encoded);
+  setStatus('saved', '✓ Opgeslagen! Deel de link met Jan-Dirk.');
+  // Show share link
+  setTimeout(function() {
+    var link = window.location.href.split('#')[0] + '#' + encoded;
+    prompt('Kopieer deze link en stuur naar Jan-Dirk (of zet in Teams):', link);
+  }, 300);
+}
+
+function setStatus(type, msg) {
+  var el = document.getElementById('save-status');
+  el.className = 'save-status ' + type;
+  el.textContent = msg;
+}
+
+function loadData() {
+  showLoading('Weekupdate laden...');
+  var loaded = false;
+
+  // 1. Try URL hash first (Jan-Dirk opens this)
+  if (window.location.hash && window.location.hash.length > 1) {
+    var d = decodeState(window.location.hash.slice(1));
+    if (d) {
+      tasks = d.tasks || { todo: [], doing: [], done: [] };
+      naam = d.naam || '';
+      weekDate = d.weekDate || '';
+      idCounter = d.idCounter || 1;
+      loaded = true;
+      setStatus('saved', '✓ Geladen vanuit gedeelde link');
+    }
+  }
+
+  // 2. Fallback: localStorage
+  if (!loaded) {
+    var raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      var d = decodeState(raw);
+      if (d) {
+        tasks = d.tasks || { todo: [], doing: [], done: [] };
+        naam = d.naam || '';
+        weekDate = d.weekDate || '';
+        idCounter = d.idCounter || 1;
+        loaded = true;
+        setStatus('', 'Lokaal geladen — klik Opslaan om te delen');
+      }
+    }
+  }
+
+  hideLoading();
+  initDate();
+  render();
+}
+
+function showLoading(msg) {
+  document.getElementById('loading-text').textContent = msg || 'Laden...';
+  document.getElementById('loading').classList.add('open');
+}
+function hideLoading() {
+  document.getElementById('loading').classList.remove('open');
+}
+
+function getWeekNumber(d) {
+  var date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  var yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+function initDate() {
+  if (!weekDate) {
+    var today = new Date();
+    var monday = new Date(today);
+    monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+    weekDate = monday.toISOString().slice(0, 10);
+  }
+  document.getElementById('week-date').value = weekDate;
+  if (naam) document.getElementById('naam-input').value = naam;
+  updateMeta();
+}
+
+function updateMeta() {
+  weekDate = document.getElementById('week-date').value;
+  naam = document.getElementById('naam-input').value.trim();
+  document.getElementById('name-display').textContent = naam || '';
+  if (weekDate) {
+    var d = new Date(weekDate);
+    var end = new Date(d); end.setDate(d.getDate() + 4);
+    var wn = getWeekNumber(d);
+    document.getElementById('week-label').textContent = 'Week ' + wn;
+    document.getElementById('date-range').textContent =
+      d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' }) + ' – ' +
+      end.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  setStatus('', 'Niet opgeslagen');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function addTask(col) {
+  var inp = document.getElementById('input-' + col);
+  var noteInp = document.getElementById('note-' + col);
+  var title = inp.value.trim();
+  if (!title) { inp.focus(); return; }
+  tasks[col].push({ id: idCounter++, title: title, note: noteInp.value.trim() });
+  inp.value = ''; noteInp.value = '';
+  setStatus('', 'Niet opgeslagen');
+  render();
+  inp.focus();
+}
+
+function moveTask(id, from, to) {
+  var idx = tasks[from].findIndex(function(t) { return t.id === id; });
+  if (idx === -1) return;
+  var task = tasks[from].splice(idx, 1)[0];
+  tasks[to].push(task);
+  setStatus('', 'Niet opgeslagen');
+  render();
+}
+
+function deleteTask(id, col) {
+  if (!confirm('Taak verwijderen?')) return;
+  tasks[col] = tasks[col].filter(function(t) { return t.id !== id; });
+  setStatus('', 'Niet opgeslagen');
+  render();
+}
+
+function clearAll() {
+  if (!confirm('Alle taken verwijderen?')) return;
+  tasks = { todo: [], doing: [], done: [] };
+  setStatus('', 'Niet opgeslagen');
+  render();
+}
+
+var moveLabels = {
+  todo:  [{ to: 'doing', label: '→ Bezig' }, { to: 'done', label: '→ Afgerond' }],
+  doing: [{ to: 'todo',  label: '← Gepland' }, { to: 'done', label: '→ Afgerond' }],
+  done:  [{ to: 'todo',  label: '← Gepland' }, { to: 'doing', label: '← Bezig' }]
+};
+
+function render() {
+  ['todo','doing','done'].forEach(function(col) {
+    var list = document.getElementById('list-' + col);
+    list.innerHTML = '';
+    tasks[col].forEach(function(task) {
+      var card = document.createElement('div');
+      card.className = 'task-card';
+      var html = '<div class="task-title">' + escHtml(task.title) + '</div>';
+      if (task.note) html += '<div class="task-note">' + escHtml(task.note) + '</div>';
+      html += '<div class="task-footer">';
+      moveLabels[col].forEach(function(m) {
+        html += '<button class="btn-sm" onclick="moveTask(' + task.id + ',\'' + col + '\',\'' + m.to + '\')">' + m.label + '</button>';
+      });
+      html += '<button class="btn-del-sm" onclick="deleteTask(' + task.id + ',\'' + col + '\')">✕</button>';
+      html += '</div>';
+      card.innerHTML = html;
+      list.appendChild(card);
+    });
+    document.getElementById('count-' + col).textContent = tasks[col].length;
+  });
+}
+
+['todo','doing','done'].forEach(function(col) {
+  document.getElementById('input-' + col).addEventListener('keydown', function(e) { if (e.key === 'Enter') addTask(col); });
+  document.getElementById('note-' + col).addEventListener('keydown', function(e) { if (e.key === 'Enter') addTask(col); });
+});
+
+loadData();
+</script>
+</body>
+</html>
